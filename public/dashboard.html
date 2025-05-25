@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AZN | לוח משתמש</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(to left, #b2ffb2, #003366);
+      margin: 0;
+      padding: 40px 20px;
+      text-align: center;
+      color: #003366;
+    }
+    .container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+    .logo {
+      max-width: 100px;
+      margin-bottom: 20px;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    .datetime {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    th {
+      background-color: #e0f2f1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://cdn.glitch.global/896601a3-4113-4a7a-81d6-f4ac31ff707b/%E2%80%8F%E2%80%8FLogo.png?v=1744798533780" class="logo" />
+    <h2>שלום, <span id="username"></span> 👋</h2>
+    <div class="datetime">
+      התחברת בתאריך <span id="date"></span> בשעה <span id="time"></span>
+    </div>
+    <button onclick="logout()">התנתק</button>
+
+    <h3>היסטוריה אחרונה</h3>
+    <table id="history-table">
+      <thead>
+        <tr>
+          <th>תאריך</th>
+          <th>שעה</th>
+          <th>פעולה</th>
+          <th>בוצע</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const username = localStorage.getItem("loggedUser");
+    if (!username) {
+      window.location.href = "index.html";
+    } else {
+      document.getElementById("username").textContent = username;
+    }
+
+    const now = new Date();
+    const date = now.toLocaleDateString('he-IL');
+    const time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById("date").textContent = date;
+    document.getElementById("time").textContent = time;
+
+    function logout() {
+      localStorage.removeItem("loggedUser");
+      localStorage.removeItem("loggedRole");
+      window.location.href = "index.html";
+    }
+
+    fetch(`/history?user=${encodeURIComponent(username)}`)
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.querySelector("#history-table tbody");
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">אין נתונים להצגה</td></tr>';
+        } else {
+          data.forEach((row, index) => {
+            const tr = document.createElement("tr");
+            const isMine = row[0] === username;
+            const done = (row[4] || '').toString().toLowerCase() === 'true';
+
+            tr.innerHTML = `
+              <td>${row[1] || ''}</td>
+              <td>${row[2] || ''}</td>
+              <td>${row[3] || ''}</td>
+              <td>
+                <input type="checkbox"
+                       ${done ? 'checked' : ''}
+                       ${!isMine ? 'disabled' : ''}
+                       onchange="toggleDone(${index}, this.checked)" />
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      })
+      .catch(err => {
+        console.error("שגיאה בטעינת היסטוריה:", err);
+      });
+
+    function toggleDone(rowIndex, checked) {
+      const valueToSend = checked ? 'TRUE' : 'FALSE';
+
+      fetch(`/tasks/${rowIndex}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: valueToSend })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("בוצע עדכון:", data);
+      })
+      .catch(err => {
+        console.error("שגיאה בעדכון בוצע:", err);
+      });
+    }
+  </script>
+</body>
+</html>
